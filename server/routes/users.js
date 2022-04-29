@@ -231,44 +231,83 @@ router.put("/:id/CS70", async (req, res) => {
   }
 });
 
+// Use/Dont use ZOOM
+router.put("/:id/ZOOM", async (req, res) => {
+  if (req.body.userId == req.params.id) {
+    try {
+      const user = await User.findById(req.params.id);
+      if (user.ZOOM === 1) {
+        await user.update({$set:{ZOOM: 0}});
+        res.status(200).json("The user don't use zoom");
+      } else if (user.ZOOM === 0){
+        await user.update({$set:{ZOOM: 1}});
+        res.status(200).json("The user uses zoom");
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  } else {
+    return res.status(403).json("No permissions");
+  }
+});
+
+// Work/Dont work on WEEKEND
+router.put("/:id/WEEKEND", async (req, res) => {
+  if (req.body.userId == req.params.id) {
+    try {
+      const user = await User.findById(req.params.id);
+      if (user.WEEKEND === 1) {
+        await user.update({$set:{WEEKEND: 0}});
+        res.status(200).json("The user don't work on weekend");
+      } else if (user.WEEKEND === 0){
+        await user.update({$set:{WEEKEND: 1}});
+        res.status(200).json("The user work on weekend");
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  } else {
+    return res.status(403).json("No permissions");
+  }
+});
+
 
 // Func that returns an array of [similarity, _id]
 async function similarity(userId) {
   try {
+    // Get all users' features
     const user = await User.findById(userId);
     const EECS16A = await User.find({}, {EECS16A:1, _id:0});
     const EECS16B = await User.find({}, {EECS16B:1, _id:0});
     const CS61A = await User.find({}, {CS61A:1, _id:0});
     const CS61B = await User.find({}, {CS61B:1, _id:0});
     const CS70 = await User.find({}, {CS70:1, _id:0});
+    const ZOOM = await User.find({}, {ZOOM: 1, _id:0});
+    const WEEKEND = await User.find({}, {WEEKEND: 1, _id:0});
     const IDs = await User.find({}, {_id:1});
-    // let features = [EECS16A, EECS16B, CS61A, CS61B, CS70, IDs]
-    const num = IDs.length;
-    let bits = new Array(num)
+
+    const num = IDs.length; // number of users
     let bitsRank = new Array(num);
-    // Get number of common bits for each feature
+    const userFeatures = [user.EECS16A, user.EECS16B, user.CS61A, user.CS61B, user.CS70, user.ZOOM, user.WEEKEND];
+    const numFeatures = userFeatures.length; // number of features
+
+    // Get number of common bits in all features with respect to the user
     for (let i = 0; i < num; i++) {
-      let bit1 = user.EECS16A & EECS16A[i].EECS16A;
-      let bit2 = user.EECS16B & EECS16B[i].EECS16B;
-      let bit3 = user.CS61A & CS61A[i].CS61A;
-      let bit4 = user.CS61B & CS61B[i].CS61B;
-      let bit5 = user.CS70 & CS70[i].CS70;
-      // Bit String for each person
-      bits[i] = [bit1, bit2, bit3, bit4, bit5].join('');
-      // Count common bits
+      let otherFeatures = [EECS16A[i].EECS16A, EECS16B[i].EECS16B, CS61A[i].CS61A, CS61B[i].CS61B, CS70[i].CS70, ZOOM[i].ZOOM, WEEKEND[i].WEEKEND];
       let count = 0;
-      for (let j = 0; j < bits[i].length; j++) {
-        if (bits[i][j] == 1) {
-          count += 1;
-        }
+      // Count the number of bit == 1 for each bit-and operation
+      for (let j = 0; j < numFeatures; j++) {
+        count += userFeatures[j] & otherFeatures[j]; // bit-and == 1 if 2 people have the same feature
       }
+      // pair up common bits with userId
       bitsRank[i] = [count, IDs[i]._id];
     }
-    // Sort bits in descending order
+
+    // Sort bits in descending order according to common bits
     bitsRank.sort((a, b) => b[0] - a[0]);
+
     // Exclude the user who calls the similarity ranking
-    bitsRank = bitsRank.filter(x => x[1] != userId);
-    return bitsRank;
+    return bitsRank.filter(x => x[1] != userId);
   } catch (err) {
     console.log(err);
   }
@@ -294,8 +333,8 @@ router.get("/similarity/top3", async (req, res) => {
     const bitsRank = await similarity(req.body.userId);
     const bitsRank3 = bitsRank.slice(0, 3);
     for (let i = 0; i < 3; i++) {
-      const id = bitsRank3[i][1];
       const sim = bitsRank3[i][0];
+      const id = bitsRank3[i][1];
       const user = await User.findById(id);
       features[i] = [user.username, sim, user.description];
     }
@@ -312,10 +351,10 @@ router.get("/similarity/top6", async (req, res) => {
     const bitsRank = await similarity(req.body.userId);
     const bitsRank6 = bitsRank.slice(0, 6);
     for (let i = 0; i < 6; i++) {
-      const id = bitsRank6[i][1];
       const sim = bitsRank6[i][0];
+      const id = bitsRank6[i][1];
       const user = await User.findById(id);
-      features[i] = [user.username, user.EECS16A, user.EECS16B, user.CS61A, user.CS61B, user.CS70, sim];
+      features[i] = [user.username, user.EECS16A, user.EECS16B, user.CS61A, user.CS61B, user.CS70, user.ZOOM, user.WEEKEND, sim];
     }
     res.status(200).json(features);
   } catch (err) {

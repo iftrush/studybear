@@ -72,6 +72,14 @@ const UserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    ZOOM: {
+      type: Number,
+      default: 0,
+    },
+    WEEKEND: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
