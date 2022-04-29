@@ -336,7 +336,7 @@ router.get("/similarity/top3", async (req, res) => {
       const sim = bitsRank3[i][0];
       const id = bitsRank3[i][1];
       const user = await User.findById(id);
-      features[i] = [user.username, sim, user.description];
+      features[i] = [user.username, user.profilePicture, sim, user.description];
     }
     res.status(200).json(features);
   } catch (err) {
